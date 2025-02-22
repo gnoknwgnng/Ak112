@@ -37,33 +37,37 @@ st.title("AI Study Planner")
 # User Inputs
 st.header("Enter Syllabus Details")
 syllabus = st.text_area("Paste your syllabus here")
-num_chapters = st.number_input("Number of chapters", min_value=1, step=1, key="num_chapters")
-days_left = st.number_input("Days until exam", min_value=1, step=1, key="days_left")
+num_chapters = st.number_input("Number of chapters", min_value=1, step=1)
+days_left = st.number_input("Days until exam", min_value=1, step=1)
 
 chapter_details = {}
 for i in range(num_chapters):
-    chapter = st.text_input(f"Chapter {i+1} Name", key=f"chapter_{i}")
-    pages = st.number_input(f"Pages in Chapter {i+1}", min_value=1, step=1, key=f"pages_{i}")
+    chapter = st.text_input(f"Chapter {i+1} Name")
+    pages = st.number_input(f"Pages in Chapter {i+1}", min_value=1, step=1)
     chapter_details[chapter] = pages
 
 # Remembrance Test
 st.header("Remembrance Test")
-test_paragraph = "This is a sample paragraph for testing memory. Try to remember it!"
+
 if "show_questions" not in st.session_state:
     st.session_state.show_questions = False
 
+test_paragraph = "This is a sample paragraph for testing memory. Try to remember it!"
+
 if st.button("Start Test"):
-    st.write(test_paragraph)
     st.session_state.show_questions = True
 
 if st.session_state.show_questions:
+    st.write(test_paragraph)
     st.write("\nAnswer the following questions:")
-    q1 = st.text_input("1. What was the topic about?", key="q1")
-    q2 = st.text_input("2. Mention a key point.", key="q2")
+    
+    answer1 = st.text_input("What was the topic about?")
+    answer2 = st.text_input("Mention a key point.")
+
     if st.button("Submit Answers"):
         score = random.randint(0, 10)  # Simulated score
         st.write(f"Your Score: {score}/10")
-        
+
         # Study Plan Logic
         st.header("Your Study Plan")
         plan = ""
@@ -77,14 +81,14 @@ if st.session_state.show_questions:
 
 # YouTube Video Search and Summary
 st.header("Find YouTube Videos for Study")
-topic = st.text_input("Enter a topic to search for videos", key="topic_search")
+topic = st.text_input("Enter a topic to search for videos")
 if st.button("Search Videos"):
     videos = search_youtube(topic)
     for title, link in videos:
         st.write(f"[{title}]({link})")
 
 st.header("Generate Summary & Questions from Video")
-video_text = st.text_area("Paste video transcript or key points", key="video_text")
+video_text = st.text_area("Paste video transcript or key points")
 if st.button("Generate Summary & Questions"):
     st.write("**Summary:**")
     st.write(generate_summary(video_text))
@@ -92,4 +96,4 @@ if st.button("Generate Summary & Questions"):
     st.write(generate_questions(video_text))
 
 st.write("---")
-st.write("Developed by Akash")
+st.write("Developed by Akash") 
