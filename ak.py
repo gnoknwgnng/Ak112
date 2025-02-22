@@ -37,8 +37,8 @@ st.title("AI Study Planner")
 # User Inputs
 st.header("Enter Syllabus Details")
 syllabus = st.text_area("Paste your syllabus here")
-num_chapters = st.number_input("Number of chapters", min_value=1, step=1)
-days_left = st.number_input("Days until exam", min_value=1, step=1)
+num_chapters = st.number_input("Number of chapters", min_value=1, step=1, key="num_chapters")
+days_left = st.number_input("Days until exam", min_value=1, step=1, key="days_left")
 
 chapter_details = {}
 for i in range(num_chapters):
@@ -49,36 +49,35 @@ for i in range(num_chapters):
 # Remembrance Test
 st.header("Remembrance Test")
 test_paragraph = "This is a sample paragraph for testing memory. Try to remember it!"
+if "show_questions" not in st.session_state:
+    st.session_state.show_questions = False
+
 if st.button("Start Test"):
-    st.session_state.show_questions = True
-    st.session_state.test_paragraph_shown = True
-
-if st.session_state.get("test_paragraph_shown", False):
     st.write(test_paragraph)
+    st.session_state.show_questions = True
 
-if st.session_state.get("show_questions", False):
+if st.session_state.show_questions:
     st.write("\nAnswer the following questions:")
-    st.write("1. What was the topic about?")
-    st.text_input("Your Answer:", key="question_1")
-    st.write("2. Mention a key point.")
-    st.text_input("Your Answer:", key="question_2")
-    score = random.randint(0, 10)  # Simulated score
-    st.write(f"Your Score: {score}/10")
-
-    # Study Plan Logic
-    st.header("Your Study Plan")
-    plan = ""
-    if score > 7:
-        plan = "Revise each chapter lightly, focus on weak areas."
-    elif score > 4:
-        plan = "Balanced study approach with moderate revision."
-    else:
-        plan = "Intensive study required. Allocate more time to difficult topics."
-    st.write(plan)
+    q1 = st.text_input("1. What was the topic about?", key="q1")
+    q2 = st.text_input("2. Mention a key point.", key="q2")
+    if st.button("Submit Answers"):
+        score = random.randint(0, 10)  # Simulated score
+        st.write(f"Your Score: {score}/10")
+        
+        # Study Plan Logic
+        st.header("Your Study Plan")
+        plan = ""
+        if score > 7:
+            plan = "Revise each chapter lightly, focus on weak areas."
+        elif score > 4:
+            plan = "Balanced study approach with moderate revision."
+        else:
+            plan = "Intensive study required. Allocate more time to difficult topics."
+        st.write(plan)
 
 # YouTube Video Search and Summary
 st.header("Find YouTube Videos for Study")
-topic = st.text_input("Enter a topic to search for videos", key="video_topic")
+topic = st.text_input("Enter a topic to search for videos", key="topic_search")
 if st.button("Search Videos"):
     videos = search_youtube(topic)
     for title, link in videos:
