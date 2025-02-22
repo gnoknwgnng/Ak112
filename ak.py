@@ -1,12 +1,13 @@
 import streamlit as st
 import random
-import openai
+import requests
 import googleapiclient.discovery
 
 # Set up Hugging Face API Key
-openai.api_key = "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"
+HF_API_KEY = "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"
+headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
-# YouTube API Key (Replace with your API key)
+# YouTube API Key
 YOUTUBE_API_KEY = "AIzaSyAZ_-5Iqe_fHM5fs6MqxEStrjWfBtSS4Kk"
 
 def search_youtube(topic):
@@ -16,20 +17,14 @@ def search_youtube(topic):
     return [(item['snippet']['title'], "https://www.youtube.com/watch?v=" + item['id']['videoId']) for item in response['items'] if 'videoId' in item['id']]
 
 def generate_summary(text):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", 
-        messages=[{"role": "system", "content": "Summarize the following content."},
-                  {"role": "user", "content": text}]
-    )
-    return response["choices"][0]["message"]["content"]
+    api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+    response = requests.post(api_url, headers=headers, json={"inputs": text})
+    return response.json()[0]['summary_text'] if response.status_code == 200 else "Error generating summary."
 
 def generate_questions(text):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", 
-        messages=[{"role": "system", "content": "Generate 3 quiz questions from the following content."},
-                  {"role": "user", "content": text}]
-    )
-    return response["choices"][0]["message"]["content"]
+    api_url = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
+    response = requests.post(api_url, headers=headers, json={"inputs": text})
+    return response.json() if response.status_code == 200 else "Error generating questions."
 
 # Streamlit UI
 st.title("AI Study Planner")
@@ -46,40 +41,7 @@ for i in range(num_chapters):
     pages = st.number_input(f"Pages in Chapter {i+1}", min_value=1, step=1)
     chapter_details[chapter] = pages
 
-# Remembrance Test
-st.header("Remembrance Test")
-
-if "show_questions" not in st.session_state:
-    st.session_state.show_questions = False
-
-test_paragraph = "This is a sample paragraph for testing memory. Try to remember it!"
-
-if st.button("Start Test"):
-    st.session_state.show_questions = True
-
-if st.session_state.show_questions:
-    st.write(test_paragraph)
-    st.write("\nAnswer the following questions:")
-    
-    answer1 = st.text_input("What was the topic about?")
-    answer2 = st.text_input("Mention a key point.")
-
-    if st.button("Submit Answers"):
-        score = random.randint(0, 10)  # Simulated score
-        st.write(f"Your Score: {score}/10")
-
-        # Study Plan Logic
-        st.header("Your Study Plan")
-        plan = ""
-        if score > 7:
-            plan = "Revise each chapter lightly, focus on weak areas."
-        elif score > 4:
-            plan = "Balanced study approach with moderate revision."
-        else:
-            plan = "Intensive study required. Allocate more time to difficult topics."
-        st.write(plan)
-
-# YouTube Video Search and Summary
+# YouTube Video Search
 st.header("Find YouTube Videos for Study")
 topic = st.text_input("Enter a topic to search for videos")
 if st.button("Search Videos"):
@@ -87,6 +49,7 @@ if st.button("Search Videos"):
     for title, link in videos:
         st.write(f"[{title}]({link})")
 
+# Summary & Questions Generation
 st.header("Generate Summary & Questions from Video")
 video_text = st.text_area("Paste video transcript or key points")
 if st.button("Generate Summary & Questions"):
@@ -96,4 +59,4 @@ if st.button("Generate Summary & Questions"):
     st.write(generate_questions(video_text))
 
 st.write("---")
-st.write("Developed by Akash") 
+st.write("Developed by Akash")
