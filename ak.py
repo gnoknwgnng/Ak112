@@ -42,23 +42,26 @@ days_left = st.number_input("Days until exam", min_value=1, step=1)
 
 chapter_details = {}
 for i in range(num_chapters):
-    chapter = st.text_input(f"Chapter {i+1} Name")
-    pages = st.number_input(f"Pages in Chapter {i+1}", min_value=1, step=1)
+    chapter = st.text_input(f"Chapter {i+1} Name", key=f"chapter_{i}")
+    pages = st.number_input(f"Pages in Chapter {i+1}", min_value=1, step=1, key=f"pages_{i}")
     chapter_details[chapter] = pages
 
 # Remembrance Test
 st.header("Remembrance Test")
 test_paragraph = "This is a sample paragraph for testing memory. Try to remember it!"
 if st.button("Start Test"):
-    st.write(test_paragraph)
     st.session_state.show_questions = True
+    st.session_state.test_paragraph_shown = True
 
-if "show_questions" in st.session_state and st.session_state.show_questions:
+if st.session_state.get("test_paragraph_shown", False):
+    st.write(test_paragraph)
+
+if st.session_state.get("show_questions", False):
     st.write("\nAnswer the following questions:")
     st.write("1. What was the topic about?")
-    st.text_input("Your Answer:")
+    st.text_input("Your Answer:", key="question_1")
     st.write("2. Mention a key point.")
-    st.text_input("Your Answer:")
+    st.text_input("Your Answer:", key="question_2")
     score = random.randint(0, 10)  # Simulated score
     st.write(f"Your Score: {score}/10")
 
@@ -75,14 +78,14 @@ if "show_questions" in st.session_state and st.session_state.show_questions:
 
 # YouTube Video Search and Summary
 st.header("Find YouTube Videos for Study")
-topic = st.text_input("Enter a topic to search for videos")
+topic = st.text_input("Enter a topic to search for videos", key="video_topic")
 if st.button("Search Videos"):
     videos = search_youtube(topic)
     for title, link in videos:
         st.write(f"[{title}]({link})")
 
 st.header("Generate Summary & Questions from Video")
-video_text = st.text_area("Paste video transcript or key points")
+video_text = st.text_area("Paste video transcript or key points", key="video_text")
 if st.button("Generate Summary & Questions"):
     st.write("**Summary:**")
     st.write(generate_summary(video_text))
