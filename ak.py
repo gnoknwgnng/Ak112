@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -56,13 +55,20 @@ st.title("Plan: AI Study Assistant")
 # Input: YouTube video URL
 video_url = st.text_input("Paste YouTube Video URL")
 
+# Store transcript to avoid NameError
+transcript = ""
+
 if video_url:
     video_title = get_video_details(video_url)
     st.write("**Video Title:**", video_title)
 
     if st.button("Get Transcript"):
         transcript = get_youtube_transcript(video_url)
+        st.session_state["transcript"] = transcript  # Store transcript in session state
         st.text_area("Video Transcript", transcript, height=200)
+
+    if "transcript" in st.session_state:
+        transcript = st.session_state["transcript"]
 
     if st.button("Summarize"):
         if transcript:
@@ -80,6 +86,49 @@ if video_url:
 
     st.button("Take a Remembrance Test")
     st.button("Show Related Videos")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
