@@ -4,10 +4,8 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 from deep_translator import GoogleTranslator
 import re
 
-# Configure Gemini API Key
 genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
 
-# Function to extract video ID from any YouTube URL format
 def extract_video_id(url):
     patterns = [
         r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})",
@@ -19,7 +17,6 @@ def extract_video_id(url):
             return match.group(1)
     return None
 
-# Function to fetch YouTube transcript in any available language
 def get_youtube_transcript(video_id):
     try:
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
@@ -38,17 +35,30 @@ def get_youtube_transcript(video_id):
     except Exception as e:
         return f"Error fetching transcript: {str(e)}", None
 
-# Function to translate text
 def translate_text(text, target_lang="en"):
     max_length = 5000
+    words = text.split()
     translated_parts = []
-    for i in range(0, len(text), max_length):
-        part = text[i:i+max_length]
-        translated_part = GoogleTranslator(source="auto", target=target_lang).translate(part)
+    
+    chunk = []
+    chunk_length = 0
+    
+    for word in words:
+        if chunk_length + len(word) + 1 <= max_length:
+            chunk.append(word)
+            chunk_length += len(word) + 1
+        else:
+            translated_part = GoogleTranslator(source="auto", target=target_lang).translate(" ".join(chunk))
+            translated_parts.append(translated_part)
+            chunk = [word]
+            chunk_length = len(word) + 1
+    
+    if chunk:
+        translated_part = GoogleTranslator(source="auto", target=target_lang).translate(" ".join(chunk))
         translated_parts.append(translated_part)
+    
     return " ".join(translated_parts)
 
-# Streamlit UI
 st.title("YouTube AI Tutor")
 st.write("Enter a YouTube video URL to extract the transcript, translate it, generate a summary, and create multiple-choice questions.")
 
@@ -74,7 +84,6 @@ if "detected_lang" in st.session_state:
 else:
     st.warning("No transcript available or detected language.")
 
-# Ask user for translation language
 target_lang = st.selectbox("Select language to translate:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
 if st.button("Translate Transcript"):
     translated_text = translate_text(st.session_state.get("transcript", ""), target_lang)
@@ -83,65 +92,3 @@ if st.button("Translate Transcript"):
 if "translated_transcript" in st.session_state:
     st.subheader("Translated Transcript")
     st.write(st.session_state["translated_transcript"])
-
-# Function to summarize text
-def summarize_text(text):
-    try:
-        model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(f"Summarize the following text in simple points:\n\n{text}")
-        return response.text
-    except Exception as e:
-        return f"Error summarizing text: {str(e)}"
-
-# Function to generate MCQs
-def generate_mcqs(text):
-    try:
-        model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(f"""
-        Generate 5 multiple-choice questions from this text in the following format:
-        
-        Q1: What is the main topic discussed?
-        A) Option 1
-        B) Option 2
-        C) Option 3
-        D) Option 4
-        Answer: B
-        
-        Ensure the format is strictly followed. Only return questions, options, and correct answers.
-        Text: {text}
-        """)
-        return response.text
-    except Exception as e:
-        return f"Error generating MCQs: {str(e)}"
-
-if "translated_transcript" in st.session_state:
-    if st.button("Summarize Transcript"):
-        summary = summarize_text(st.session_state["translated_transcript"])
-        st.session_state["summary"] = summary
-
-if "summary" in st.session_state:
-    st.subheader("Summary of the Video")
-    st.write(st.session_state["summary"])
-    if st.button("Generate MCQs"):
-        mcq_text = generate_mcqs(st.session_state["summary"])
-        st.session_state["mcqs"] = mcq_text
-
-if "mcqs" in st.session_state:
-    st.subheader("Multiple Choice Questions")
-    mcqs = st.session_state["mcqs"].strip().split("\n\n")
-    answers = {}
-    
-    for i, mcq in enumerate(mcqs):
-        lines = mcq.split("\n")
-        if len(lines) >= 5:
-            question = lines[0]
-            options = lines[1:5]
-            correct_answer = lines[5].split(":")[-1].strip()
-            
-            st.write(question)
-            user_answer = st.radio(f"Select answer for {question}", options, key=f"q{i}")
-            answers[f"q{i}"] = (user_answer, correct_answer)
-
-    if st.button("Submit Test"):
-        score = sum(1 for key, (user_ans, correct_ans) in answers.items() if user_ans.startswith(correct_ans))
-        st.success(f"Test completed! Your score: {score}/{len(answers)}")
