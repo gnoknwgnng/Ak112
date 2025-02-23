@@ -1,70 +1,43 @@
 import streamlit as st
-import requests
-from youtube_transcript_api import YouTubeTranscriptApi
+import google.generativeai as genai
 
-HUGGINGFACE_API_KEY = "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"
-
-def get_transcript(video_id):
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        return " ".join([entry['text'] for entry in transcript])
-    except Exception as e:
-        return f"Error fetching transcript: {str(e)}"
+# Set up Gemini API Key
+GEMINI_API_KEY = "AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU"
+genai.configure(api_key=GEMINI_API_KEY)
 
 def generate_summary(text):
-    url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+    """Generate a summary using Gemini API."""
+    model = genai.GenerativeModel("gemini-pro")
+    response = model.generate_content(f"Summarize the following text:\n{text}")
     
-    response = requests.post(url, headers=headers, json={"inputs": text}, timeout=60)
-    
-    if response.ok:
-        return response.json()["summary_text"]
-    return f"Error generating summary: {response.json()}"
+    if response and response.text:
+        return response.text
+    return "Error generating summary."
 
 def generate_questions(text):
-    url = "https://api-inference.huggingface.co/models/iarfmoose/t5-base-question-generator"
-    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+    """Generate questions using Gemini API."""
+    model = genai.GenerativeModel("gemini-pro")
+    response = model.generate_content(f"Generate 3 quiz questions from the following text:\n{text}")
     
-    response = requests.post(url, headers=headers, json={"inputs": text}, timeout=60)
-    
-    if response.ok:
-        return response.json()[0]['generated_text']  # Adjust based on model response
-    return f"Error generating questions: {response.json()}"  # Print exact error
+    if response and response.text:
+        return response.text
+    return "Error generating questions."
 
-st.title("YouTube Video Transcript Summarizer & Question Generator")
+# Streamlit UI
+st.title("Generate Summary & Questions from Video")
 
-video_url = st.text_input("Enter YouTube Video URL:")
+video_text = st.text_area("Paste video transcript or key points")
+if st.button("Generate Summary & Questions"):
+    st.write("**Summary:**")
+    summary = generate_summary(video_text)
+    st.write(summary)
 
-if video_url:
-    video_id = video_url.split("v=")[-1]
-    transcript = get_transcript(video_id)
-    
-    if "Error" not in transcript:
-        st.write("### Video Transcript:")
-        st.write(transcript)
-        
-        if st.button("Summarize"):
-            summary = generate_summary(transcript)
-            st.write("### Summary:")
-            st.write(summary)
-        
-        if st.button("Generate Questions"):
-            questions = generate_questions(transcript)
-            st.write("### Questions:")
-            st.write(questions)
-    else:
-        st.error(transcript)
+    st.write("**Questions:**")
+    questions = generate_questions(video_text)
+    st.write(questions)
 
-
-
-
-
-
-
-
-
-
-
+st.write("---")
+st.write("Developed by Akash")
 
 
 
