@@ -1,98 +1,61 @@
 import streamlit as st
+from youtube_transcript_api import YouTubeTranscriptApi
 import google.generativeai as genai
 
-# Set up Gemini API Key
-GEMINI_API_KEY = "AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU"
-genai.configure(api_key=GEMINI_API_KEY)
+# Configure Gemini API
+genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
 
-def generate_summary(text):
-    """Generate a summary using Gemini API."""
-    model = genai.GenerativeModel("gemini-pro")
-    response = model.generate_content(f"Summarize the following text:\n{text}")
-    
-    if response and response.text:
-        return response.text
-    return "Error generating summary."
+# Function to get transcript from YouTube video
+def get_youtube_transcript(video_url):
+    try:
+        video_id = video_url.split("v=")[-1]
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        text = " ".join([entry['text'] for entry in transcript])
+        return text
+    except Exception as e:
+        return f"Error fetching transcript: {str(e)}"
 
-def generate_questions(text):
-    """Generate questions using Gemini API."""
-    model = genai.GenerativeModel("gemini-pro")
-    response = model.generate_content(f"Generate 3 quiz questions from the following text:\n{text}")
-    
-    if response and response.text:
+# Function to summarize text using Gemini
+def summarize_text(text):
+    try:
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(f"Summarize this: {text}")
         return response.text
-    return "Error generating questions."
+    except Exception as e:
+        return f"Error summarizing: {str(e)}"
+
+# Function to generate MCQs using Gemini
+def generate_mcqs(text):
+    try:
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(f"Generate 5 multiple-choice questions from this: {text}")
+        return response.text
+    except Exception as e:
+        return f"Error generating MCQs: {str(e)}"
 
 # Streamlit UI
 st.title("Generate Summary & Questions from Video")
+video_url = st.text_input("Paste YouTube video URL")
 
-video_text = st.text_area("Paste video transcript or key points")
 if st.button("Generate Summary & Questions"):
-    st.write("**Summary:**")
-    summary = generate_summary(video_text)
-    st.write(summary)
+    with st.spinner("Fetching transcript..."):
+        transcript_text = get_youtube_transcript(video_url)
 
-    st.write("**Questions:**")
-    questions = generate_questions(video_text)
-    st.write(questions)
+    if "Error" in transcript_text:
+        st.error(transcript_text)
+    else:
+        st.subheader("Transcript")
+        st.write(transcript_text[:1000] + "...")  # Show a preview of the transcript
 
-st.write("---")
-st.write("Developed by Akash")
+        with st.spinner("Generating Summary..."):
+            summary = summarize_text(transcript_text)
+        st.subheader("Summary")
+        st.write(summary)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        with st.spinner("Generating MCQs..."):
+            mcqs = generate_mcqs(transcript_text)
+        st.subheader("Multiple Choice Questions")
+        st.write(mcqs)
 
 
 
