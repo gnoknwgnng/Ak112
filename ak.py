@@ -1,8 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
-import re
 from deep_translator import GoogleTranslator
+import re
 
 # Configure Gemini API Key
 genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
@@ -19,10 +19,10 @@ def extract_video_id(url):
             return match.group(1)
     return None
 
-# Function to extract YouTube transcript with language support
-def get_youtube_transcript(video_id, lang_code="en"):
+# Function to extract YouTube transcript with automatic language detection
+def get_youtube_transcript(video_id):
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[lang_code])
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
         text = " ".join([t["text"] for t in transcript])  # Merge transcript text
         return text
     except Exception as e:
@@ -33,13 +33,11 @@ def translate_text(text, target_lang="en"):
     max_length = 5000  # Limit for translation API
     translated_parts = []
     
-    # Split text into chunks of max_length characters
     for i in range(0, len(text), max_length):
         part = text[i:i+max_length]
         translated_part = GoogleTranslator(source="auto", target=target_lang).translate(part)
         translated_parts.append(translated_part)
-
-    # Combine translated parts
+    
     return " ".join(translated_parts)
 
 # Function to summarize text
@@ -78,14 +76,13 @@ st.write("Enter a YouTube video URL to extract the transcript, generate a summar
 
 # User inputs YouTube URL
 video_url = st.text_input("Enter YouTube Video URL:")
-lang_code = st.selectbox("Select language for transcript:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
 
 if st.button("Get Transcript"):
     if video_url.strip():
         video_id = extract_video_id(video_url)
         
         if video_id:
-            transcript = get_youtube_transcript(video_id, lang_code)
+            transcript = get_youtube_transcript(video_id)
             st.session_state["transcript"] = transcript  # Store transcript in session state
         else:
             st.warning("Invalid YouTube URL. Please check the link.")
@@ -96,22 +93,29 @@ if st.button("Get Transcript"):
 if "transcript" in st.session_state:
     st.subheader("Extracted Transcript")
     st.write(st.session_state["transcript"])
+    
+    # Ask for translation
+    target_lang = st.selectbox("Select language for translation:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
+    
+    if st.button("Translate Transcript"):
+        translated_text = translate_text(st.session_state["transcript"], target_lang)
+        st.session_state["translated_transcript"] = translated_text  # Store translated text in session state
 
+# Display translated transcript
+if "translated_transcript" in st.session_state:
+    st.subheader("Translated Transcript")
+    st.write(st.session_state["translated_transcript"])
+    
     # Generate Summary
     if st.button("Summarize Transcript"):
-        transcript = st.session_state.get("transcript", "")
-        if transcript:
-            translated_text = translate_text(transcript, "en")
-            summary = summarize_text(translated_text)
-            st.session_state["summary"] = summary  # Store summary in session state
-        else:
-            st.warning("No transcript available.")
+        summary = summarize_text(st.session_state["translated_transcript"])
+        st.session_state["summary"] = summary  # Store summary in session state
 
 # Display Summary
 if "summary" in st.session_state:
     st.subheader("Summary of the Video")
     st.write(st.session_state["summary"])
-
+    
     # Generate MCQs
     if st.button("Generate MCQs"):
         mcq_text = generate_mcqs(st.session_state["summary"])  # Use summary for MCQs
