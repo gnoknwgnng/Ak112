@@ -4,4 +4,5 @@ google-api-python-client
 youtube-search-python
 transformers
 youtube-transcript-api
+pip install google-generativeai
 
