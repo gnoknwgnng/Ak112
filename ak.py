@@ -47,14 +47,15 @@ def translate_text(text, target_lang="en"):
     
     return " ".join(translated_parts)
 
-def generate_summary(text):
+def generate_summary(text, lang="en"):
     model = genai.GenerativeModel("gemini-pro")
-    response = model.generate_content(f"Summarize the following text: {text}")
+    prompt = f"Summarize the following text in {lang}: {text}"
+    response = model.generate_content(prompt)
     return response.text.strip()
 
-def generate_mcqs(text):
+def generate_mcqs(text, lang="en"):
     model = genai.GenerativeModel("gemini-pro")
-    prompt = f"Generate 3 multiple-choice questions from the following text. Provide four answer options for each question, and mark the correct answer with (*): {text}"
+    prompt = f"Generate 3 multiple-choice questions in {lang} from the following text. Provide four answer options for each question, and mark the correct answer with (*): {text}"
     response = model.generate_content(prompt)
     return response.text.strip()
 
@@ -93,19 +94,31 @@ if "translated_transcript" in st.session_state:
     st.subheader("Translated Transcript")
     st.write(st.session_state["translated_transcript"])
 
+summary_lang = st.selectbox("Select language for Summary:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
 if st.button("Generate Summary"):
-    summary = generate_summary(st.session_state.get("transcript", ""))
+    summary = generate_summary(st.session_state.get("transcript", ""), summary_lang)
     st.session_state["summary"] = summary
 
 if "summary" in st.session_state:
     st.subheader("Summary")
     st.write(st.session_state["summary"])
 
+quiz_lang = st.selectbox("Select language for Quiz:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
 if st.button("Generate MCQs"):
-    mcqs = generate_mcqs(st.session_state.get("transcript", ""))
+    mcqs = generate_mcqs(st.session_state.get("transcript", ""), quiz_lang)
     st.session_state["mcqs"] = mcqs
 
 if "mcqs" in st.session_state:
     st.subheader("Multiple-Choice Questions")
     st.write(st.session_state["mcqs"])
+
+
+
+
+
+
+
+
+
+
 
