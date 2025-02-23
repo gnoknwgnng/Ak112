@@ -1,3 +1,4 @@
+
 import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
@@ -59,6 +60,18 @@ def generate_mcqs(text, lang="en"):
     response = model.generate_content(prompt)
     return response.text.strip()
 
+def parse_mcqs(mcq_text):
+    questions = []
+    for block in mcq_text.split("\n\n"):
+        lines = block.split("\n")
+        if len(lines) >= 5:
+            question = lines[0]
+            options = lines[1:5]
+            correct_option = next((opt for opt in options if "(*)" in opt), None)
+            correct_answer = correct_option.replace("(*)", "").strip() if correct_option else None
+            questions.append({"question": question, "options": options, "correct": correct_answer})
+    return questions
+
 # Streamlit UI
 st.title("YouTube AI Tutor")
 st.write("Enter a YouTube video URL to extract the transcript, translate it, generate a summary, and create multiple-choice questions.")
@@ -106,14 +119,24 @@ if "summary" in st.session_state:
 quiz_lang = st.selectbox("Select language for Quiz:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
 if st.button("Generate MCQs"):
     mcqs = generate_mcqs(st.session_state.get("transcript", ""), quiz_lang)
-    st.session_state["mcqs"] = mcqs
+    st.session_state["mcqs"] = parse_mcqs(mcqs)
+    st.session_state["score"] = 0
+    st.session_state["quiz_index"] = 0
 
 if "mcqs" in st.session_state:
-    st.subheader("Multiple-Choice Questions")
-    st.write(st.session_state["mcqs"])
-
-
-
+    mcqs = st.session_state["mcqs"]
+    if st.session_state["quiz_index"] < len(mcqs):
+        q = mcqs[st.session_state["quiz_index"]]
+        st.subheader(q["question"])
+        selected_option = st.radio("Select an answer:", q["options"], key=st.session_state["quiz_index"])
+        if st.button("Submit Answer"):
+            if selected_option.strip() == q["correct"]:
+                st.session_state["score"] += 1
+            st.session_state["quiz_index"] += 1
+            st.experimental_rerun()
+    else:
+        st.subheader("Quiz Completed!")
+        st.write(f"Your score: {st.session_state['score']} out of {len(mcqs)}")
 
 
 
