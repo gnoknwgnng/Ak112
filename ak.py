@@ -3,86 +3,49 @@ import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
 
-# Configure Gemini API Key
+# Configure Gemini API key
 genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
 
-# Function to extract video transcript
+def extract_video_id(youtube_url):
+    """Extracts the video ID from a YouTube URL"""
+    match = re.search(r"v=([a-zA-Z0-9_-]{11})", youtube_url)
+    return match.group(1) if match else None
+
 def get_transcript(video_url):
-    video_id = re.search(r"v=([\w-]+)", video_url)
-    if video_id:
-        video_id = video_id.group(1)
-        try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-            text = " ".join([entry['text'] for entry in transcript])
-            return text
-        except:
-            return "Error: Unable to fetch transcript."
-    return "Invalid YouTube URL."
+    """Fetches transcript for a YouTube video"""
+    video_id = extract_video_id(video_url)
+    if not video_id:
+        return "Invalid YouTube URL"
+    
+    try:
+        transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript_text = " ".join([entry["text"] for entry in transcript_data])
+        return transcript_text
+    except Exception as e:
+        return f"Error fetching transcript: {e}"
 
-# Function to generate summary and MCQs
 def generate_summary_and_mcqs(transcript):
-    prompt = f"""
-    Generate a concise summary of the following transcript:
-    {transcript}
+    """Generates summary and MCQs using Gemini AI"""
+    prompt = f"Summarize this transcript:\n{transcript}\n\nThen generate 5 multiple-choice questions with 4 options each, marking the correct answer."
     
-    Then, create 5 multiple-choice questions (MCQs) with four options each. Indicate the correct answer.
-    """
-    
-    model = genai.GenerativeModel("gemini-pro")
-    response = model.generate_content(prompt)
-    return response.text
-
-# Extract MCQs from text
-def extract_mcqs(text):
-    mcqs = []
-    pattern = re.findall(r"Q\d+: (.*?)\nA\) (.*?)\nB\) (.*?)\nC\) (.*?)\nD\) (.*?)\nAnswer: (.*?)\n", text)
-    for match in pattern:
-        question, *options, answer = match
-        mcqs.append({
-            "question": question,
-            "options": options,
-            "answer": answer.strip()
-        })
-    return mcqs
+    try:
+        response = genai.generate_text(model="gemini-pro", prompt=prompt)
+        return response.text
+    except Exception as e:
+        return f"Error generating content: {e}"
 
 # Streamlit UI
 st.title("YouTube AI Tutor")
-video_url = st.text_input("Enter YouTube Video URL")
+st.write("### Enter YouTube Video URL")
+
+youtube_url = st.text_input("Enter YouTube Video URL", "")
 
 if st.button("Generate Summary & Quiz"):
-    transcript = get_transcript(video_url)
-    if "Error" in transcript:
+    transcript = get_transcript(youtube_url)
+    
+    if "Error" in transcript or "Invalid" in transcript:
         st.error(transcript)
     else:
+        st.write("**Summary & Quiz:**")
         response_text = generate_summary_and_mcqs(transcript)
-        summary, mcqs_text = response_text.split("\n\n", 1)
-        
-        st.write("**Summary:**")
-        st.write(summary.strip())
-        
-        mcqs = extract_mcqs(mcqs_text)
-        user_answers = {}
-        
-        st.write("**Quiz:**")
-        for idx, mcq in enumerate(mcqs):
-            user_answers[idx] = st.radio(mcq["question"], mcq["options"], key=idx)
-        
-        if st.button("Submit Test"):
-            score = sum(1 for i in range(len(mcqs)) if user_answers[i] == mcqs[i]["answer"])
-            st.write(f"Your Score: {score}/{len(mcqs)}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        st.write(response_text)
