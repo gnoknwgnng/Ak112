@@ -1,111 +1,90 @@
-import streamlit as st
-from youtube_transcript_api import YouTubeTranscriptApi
-import google.generativeai as genai
 
-# Configure Gemini API
+
+
+
+
+
+import streamlit as st
+import google.generativeai as genai
+from youtube_transcript_api import YouTubeTranscriptApi
+
+# Configure Gemini API Key
 genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
 
-# Function to get transcript from YouTube video
+# Function to extract YouTube transcript
 def get_youtube_transcript(video_url):
     try:
-        video_id = video_url.split("v=")[-1]
+        video_id = video_url.split("v=")[-1].split("&")[0]  # Extract video ID
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        text = " ".join([entry['text'] for entry in transcript])
+        text = " ".join([t["text"] for t in transcript])  # Merge transcript text
         return text
     except Exception as e:
         return f"Error fetching transcript: {str(e)}"
 
-# Function to summarize text using Gemini
-def summarize_text(text):
-    try:
-        model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(f"Summarize this: {text}")
-        return response.text
-    except Exception as e:
-        return f"Error summarizing: {str(e)}"
-
-# Function to generate MCQs using Gemini
+# Function to generate MCQs
 def generate_mcqs(text):
     try:
         model = genai.GenerativeModel("gemini-pro")
         response = model.generate_content(f"""
         Generate 5 multiple-choice questions from this text in the following format:
-        Q1: What is the main idea?
+        
+        Q1: What is the main topic discussed?
         A) Option 1
         B) Option 2
         C) Option 3
         D) Option 4
         Answer: B
+        
+        Ensure the format is **strictly followed**. Only return questions, options, and correct answers.
+        Text: {text}
         """)
         return response.text
     except Exception as e:
         return f"Error generating MCQs: {str(e)}"
 
-# Function to parse MCQs into a test format
-def parse_mcqs(mcqs_text):
-    questions = []
-    lines = mcqs_text.split("\n")
-    question = None
-    options = []
-    correct_answer = None
-
-    for line in lines:
-        line = line.strip()
-        if line.startswith("Q"):
-            if question:
-                questions.append((question, options, correct_answer))
-            question = line
-            options = []
-            correct_answer = None
-        elif line.startswith(("A)", "B)", "C)", "D)")):
-            options.append(line)
-        elif line.startswith("Answer:"):
-            correct_answer = line.split("Answer:")[-1].strip()
-    
-    if question:
-        questions.append((question, options, correct_answer))
-
-    return questions
-
 # Streamlit UI
-st.title("Generate Summary & Questions from Video")
-video_url = st.text_input("Paste YouTube video URL")
+st.title("YouTube Video MCQ Generator")
+st.write("Enter a YouTube video URL to extract the transcript and generate multiple-choice questions.")
 
-if st.button("Generate Summary & Questions"):
-    with st.spinner("Fetching transcript..."):
-        transcript_text = get_youtube_transcript(video_url)
-
-    if "Error" in transcript_text:
-        st.error(transcript_text)
+# User inputs YouTube URL
+video_url = st.text_input("Enter YouTube Video URL:")
+if st.button("Get Transcript"):
+    if video_url.strip():
+        transcript = get_youtube_transcript(video_url)
+        st.session_state["transcript"] = transcript  # Store transcript in session state
     else:
-        st.subheader("Transcript")
-        st.write(transcript_text[:1000] + "...")  # Show a preview of the transcript 
+        st.warning("Please enter a valid YouTube URL.")
 
-        with st.spinner("Generating Summary..."):
-            summary = summarize_text(transcript_text)
-        st.subheader("Summary")
-        st.write(summary)
+# Display transcript
+if "transcript" in st.session_state:
+    st.subheader("Extracted Transcript")
+    st.write(st.session_state["transcript"])
 
-        with st.spinner("Generating MCQs..."):
-            mcqs_text = generate_mcqs(transcript_text)
+    # Generate MCQs from transcript
+    if st.button("Generate MCQs"):
+        mcq_text = generate_mcqs(st.session_state["transcript"])
+        st.session_state["mcqs"] = mcq_text  # Store MCQs in session state
 
-        # Debugging: Print the raw MCQs text
-        st.text("Generated MCQs (Debugging):")
-        st.write(mcqs_text)  # Display raw text to check the format
-
-        st.subheader("Multiple Choice Questions")
-
-        # Convert text to structured questions
-        questions = parse_mcqs(mcqs_text)
-
-        if not questions:
-            st.error("Failed to parse MCQs. Check the raw MCQ text above.")
-
-        user_answers = {}
-        for idx, (question, options, correct_answer) in enumerate(questions):
+# Display MCQs
+if "mcqs" in st.session_state:
+    st.subheader("Multiple Choice Questions")
+    
+    mcqs = st.session_state["mcqs"].strip().split("\n\n")  # Split each question
+    answers = {}  # Store user-selected answers
+    
+    for i, mcq in enumerate(mcqs):
+        lines = mcq.split("\n")
+        if len(lines) >= 5:  # Ensure it's a valid MCQ format
+            question = lines[0]
+            options = lines[1:5]
+            correct_answer = lines[5].split(":")[-1].strip()
+            
             st.write(question)
-            user_answers[idx] = st.radio(f"Select your answer for {question}", options)
+            user_answer = st.radio(f"Select answer for {question}", options, key=f"q{i}")
+            answers[f"q{i}"] = (user_answer, correct_answer)  # Store answer
 
-        if st.button("Submit Test"):
-            score = sum(1 for idx, (q, opts, ans) in enumerate(questions) if user_answers.get(idx) == ans)
-            st.success(f"You scored {score} out of {len(questions)}")
+    # Submit button to calculate score
+    if st.button("Submit Test"):
+        score = sum(1 for key, (user_ans, correct_ans) in answers.items() if user_ans.startswith(correct_ans))
+        st.success(f"Test completed! Your score: {score}/{len(answers)}")
+
