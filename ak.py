@@ -1,14 +1,33 @@
 import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
+import re
 
 # Configure Gemini API Key
 genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
 
+# Function to extract YouTube video ID from any URL format
+def extract_video_id(video_url):
+    try:
+        patterns = [
+            r"(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)",  # Standard URL
+            r"(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]+)",  # Shortened URL
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, video_url)
+            if match:
+                return match.group(1)
+        return None
+    except Exception as e:
+        return None
+
 # Function to extract YouTube transcript
 def get_youtube_transcript(video_url):
+    video_id = extract_video_id(video_url)
+    if not video_id:
+        return "Invalid YouTube URL. Please check your link."
+    
     try:
-        video_id = video_url.split("v=")[-1].split("&")[0]  # Extract video ID
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
         text = " ".join([t["text"] for t in transcript])  # Merge transcript text
         return text
@@ -38,7 +57,7 @@ def generate_mcqs(text):
         D) Option 4
         Answer: B
         
-        Ensure the format is **strictly followed**. Only return questions, options, and correct answers.
+        Ensure the format is *strictly followed*. Only return questions, options, and correct answers.
         Text: {text}
         """)
         return response.text
@@ -99,12 +118,4 @@ if "mcqs" in st.session_state:
     # Submit button to calculate score
     if st.button("Submit Test"):
         score = sum(1 for key, (user_ans, correct_ans) in answers.items() if user_ans.startswith(correct_ans))
-        st.success(f"Test completed! Your score: {score}/{len(answers)}")
-
-
-
-
-
-
-
-
+        st.success(f"Test completed! Your score: {score}/{len(answers)}")  
