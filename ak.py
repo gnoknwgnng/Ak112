@@ -28,7 +28,15 @@ def summarize_text(text):
 def generate_mcqs(text):
     try:
         model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(f"Generate 5 multiple-choice questions from this text. Format it as:\n\nQ1: ...?\nA) ...\nB) ...\nC) ...\nD) ...\nAnswer: ...")
+        response = model.generate_content(f"""
+        Generate 5 multiple-choice questions from this text in the following format:
+        Q1: What is the main idea?
+        A) Option 1
+        B) Option 2
+        C) Option 3
+        D) Option 4
+        Answer: B
+        """)
         return response.text
     except Exception as e:
         return f"Error generating MCQs: {str(e)}"
@@ -80,10 +88,18 @@ if st.button("Generate Summary & Questions"):
 
         with st.spinner("Generating MCQs..."):
             mcqs_text = generate_mcqs(transcript_text)
+
+        # Debugging: Print the raw MCQs text
+        st.text("Generated MCQs (Debugging):")
+        st.write(mcqs_text)  # Display raw text to check the format
+
         st.subheader("Multiple Choice Questions")
 
         # Convert text to structured questions
         questions = parse_mcqs(mcqs_text)
+
+        if not questions:
+            st.error("Failed to parse MCQs. Check the raw MCQ text above.")
 
         user_answers = {}
         for idx, (question, options, correct_answer) in enumerate(questions):
