@@ -4,7 +4,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 from deep_translator import GoogleTranslator
 import re
 
-genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")
+genai.configure(api_key="AIzaSyCFA8FGd9mF42_4ExVYTqOsvOeCbyHzBFU")  # Replace with your valid API key
 
 def extract_video_id(url):
     patterns = [
@@ -36,29 +36,29 @@ def get_youtube_transcript(video_id):
         return f"Error fetching transcript: {str(e)}", None
 
 def translate_text(text, target_lang="en"):
-    max_length = 5000
     words = text.split()
     translated_parts = []
+    chunk_size = 100  # Translate in chunks of 100 words to prevent errors
     
-    chunk = []
-    chunk_length = 0
-    
-    for word in words:
-        if chunk_length + len(word) + 1 <= max_length:
-            chunk.append(word)
-            chunk_length += len(word) + 1
-        else:
-            translated_part = GoogleTranslator(source="auto", target=target_lang).translate(" ".join(chunk))
-            translated_parts.append(translated_part)
-            chunk = [word]
-            chunk_length = len(word) + 1
-    
-    if chunk:
-        translated_part = GoogleTranslator(source="auto", target=target_lang).translate(" ".join(chunk))
+    for i in range(0, len(words), chunk_size):
+        chunk = " ".join(words[i:i+chunk_size])
+        translated_part = GoogleTranslator(source="auto", target=target_lang).translate(chunk)
         translated_parts.append(translated_part)
     
     return " ".join(translated_parts)
 
+def generate_summary(text):
+    model = genai.GenerativeModel("gemini-pro")
+    response = model.generate_content(f"Summarize the following text: {text}")
+    return response.text.strip()
+
+def generate_mcqs(text):
+    model = genai.GenerativeModel("gemini-pro")
+    prompt = f"Generate 3 multiple-choice questions from the following text. Provide four answer options for each question, and mark the correct answer with (*): {text}"
+    response = model.generate_content(prompt)
+    return response.text.strip()
+
+# Streamlit UI
 st.title("YouTube AI Tutor")
 st.write("Enter a YouTube video URL to extract the transcript, translate it, generate a summary, and create multiple-choice questions.")
 
@@ -92,3 +92,20 @@ if st.button("Translate Transcript"):
 if "translated_transcript" in st.session_state:
     st.subheader("Translated Transcript")
     st.write(st.session_state["translated_transcript"])
+
+if st.button("Generate Summary"):
+    summary = generate_summary(st.session_state.get("transcript", ""))
+    st.session_state["summary"] = summary
+
+if "summary" in st.session_state:
+    st.subheader("Summary")
+    st.write(st.session_state["summary"])
+
+if st.button("Generate MCQs"):
+    mcqs = generate_mcqs(st.session_state.get("transcript", ""))
+    st.session_state["mcqs"] = mcqs
+
+if "mcqs" in st.session_state:
+    st.subheader("Multiple-Choice Questions")
+    st.write(st.session_state["mcqs"])
+
