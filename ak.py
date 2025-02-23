@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 from deep_translator import GoogleTranslator
 import re
 
@@ -19,26 +19,77 @@ def extract_video_id(url):
             return match.group(1)
     return None
 
-# Function to extract YouTube transcript with automatic language detection
+# Function to fetch YouTube transcript in any available language
 def get_youtube_transcript(video_id):
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        text = " ".join([t["text"] for t in transcript])  # Merge transcript text
-        return text
+        # Fetch available transcript languages
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        available_languages = [t.language_code for t in transcript_list]
+
+        # Prioritize English, then Hindi, else take the first available language
+        preferred_languages = ["en", "hi"] + available_languages
+        selected_language = next((lang for lang in preferred_languages if lang in available_languages), None)
+
+        if selected_language:
+            transcript = transcript_list.find_transcript([selected_language]).fetch()
+            text = " ".join([t["text"] for t in transcript])  # Merge transcript text
+            return text, selected_language  # Return transcript and detected language
+        else:
+            return "No transcript available.", None
+    except (TranscriptsDisabled, NoTranscriptFound):
+        return "Transcript not available for this video.", None
     except Exception as e:
-        return f"Error fetching transcript: {str(e)}"
+        return f"Error fetching transcript: {str(e)}", None
 
 # Function to translate text
 def translate_text(text, target_lang="en"):
     max_length = 5000  # Limit for translation API
     translated_parts = []
-    
+
     for i in range(0, len(text), max_length):
         part = text[i:i+max_length]
         translated_part = GoogleTranslator(source="auto", target=target_lang).translate(part)
         translated_parts.append(translated_part)
-    
+
     return " ".join(translated_parts)
+
+# Streamlit UI
+st.title("YouTube AI Tutor")
+st.write("Enter a YouTube video URL to extract the transcript, translate it, generate a summary, and create multiple-choice questions.")
+
+# User inputs YouTube URL
+video_url = st.text_input("Enter YouTube Video URL:")
+
+if st.button("Get Transcript"):
+    if video_url.strip():
+        video_id = extract_video_id(video_url)
+        
+        if video_id:
+            transcript, detected_lang = get_youtube_transcript(video_id)
+            st.session_state["transcript"] = transcript  # Store transcript in session state
+            st.session_state["detected_lang"] = detected_lang  # Store detected language
+        else:
+            st.warning("Invalid YouTube URL. Please check the link.")
+    else:
+        st.warning("Please enter a valid YouTube URL.")
+
+# Display transcript
+if "transcript" in st.session_state:
+    st.subheader("Extracted Transcript")
+    st.write(f"**Detected Language:** {st.session_state['detected_lang'].upper() if st.session_state['detected_lang'] else 'Unknown'}")
+    st.write(st.session_state["transcript"])
+
+    # Ask user for translation language
+    target_lang = st.selectbox("Select language to translate:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
+
+    if st.button("Translate Transcript"):
+        translated_text = translate_text(st.session_state["transcript"], target_lang)
+        st.session_state["translated_transcript"] = translated_text
+
+# Display translated transcript
+if "translated_transcript" in st.session_state:
+    st.subheader("Translated Transcript")
+    st.write(st.session_state["translated_transcript"])
 
 # Function to summarize text
 def summarize_text(text):
@@ -70,43 +121,8 @@ def generate_mcqs(text):
     except Exception as e:
         return f"Error generating MCQs: {str(e)}"
 
-# Streamlit UI
-st.title("YouTube AI Tutor")
-st.write("Enter a YouTube video URL to extract the transcript, generate a summary, and create multiple-choice questions.")
-
-# User inputs YouTube URL
-video_url = st.text_input("Enter YouTube Video URL:")
-
-if st.button("Get Transcript"):
-    if video_url.strip():
-        video_id = extract_video_id(video_url)
-        
-        if video_id:
-            transcript = get_youtube_transcript(video_id)
-            st.session_state["transcript"] = transcript  # Store transcript in session state
-        else:
-            st.warning("Invalid YouTube URL. Please check the link.")
-    else:
-        st.warning("Please enter a valid YouTube URL.")
-
-# Display transcript
-if "transcript" in st.session_state:
-    st.subheader("Extracted Transcript")
-    st.write(st.session_state["transcript"])
-    
-    # Ask for translation
-    target_lang = st.selectbox("Select language for translation:", ["en", "hi", "es", "fr", "de", "zh", "ar", "ru", "ja", "ko"], index=0)
-    
-    if st.button("Translate Transcript"):
-        translated_text = translate_text(st.session_state["transcript"], target_lang)
-        st.session_state["translated_transcript"] = translated_text  # Store translated text in session state
-
-# Display translated transcript
+# Generate Summary
 if "translated_transcript" in st.session_state:
-    st.subheader("Translated Transcript")
-    st.write(st.session_state["translated_transcript"])
-    
-    # Generate Summary
     if st.button("Summarize Transcript"):
         summary = summarize_text(st.session_state["translated_transcript"])
         st.session_state["summary"] = summary  # Store summary in session state
@@ -115,7 +131,7 @@ if "translated_transcript" in st.session_state:
 if "summary" in st.session_state:
     st.subheader("Summary of the Video")
     st.write(st.session_state["summary"])
-    
+
     # Generate MCQs
     if st.button("Generate MCQs"):
         mcq_text = generate_mcqs(st.session_state["summary"])  # Use summary for MCQs
