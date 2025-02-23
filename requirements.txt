@@ -1,4 +1,7 @@
 streamlit
 google-generativeai
+openai
+google-api-python-client
+youtube-search-python
+transformers
 youtube-transcript-api
-protobuf
